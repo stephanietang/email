@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-jdbc="http://www.springframework.org/schema/integration/jdbc"
+	xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/jdbc http://www.springframework.org/schema/integration/jdbc/spring-integration-jdbc.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
+
+	<context:component-scan base-package="com.bolehunt.email" />
+
+	<!-- For testing 
+	<jdbc:initialize-database data-source="dataSource" enabled="true">
+		<jdbc:script location="classpath:db-schema.sql" />
+		<jdbc:script location="classpath:db-test-data.sql" />
+	</jdbc:initialize-database> -->
+
+ 	<int-jdbc:inbound-channel-adapter id="dataChannel"
+		query="select vt.*, u.email from verify_token vt, user u where vt.user_id = u.id and vt.token_type=1 and vt.sent = 0" 
+		update="update verify_token set sent = 1 where id in (:id)"
+		data-source="dataSource" row-mapper="verifyTokenRowMapper"
+		max-rows-per-poll="100" >
+		<int:poller fixed-rate="60000">
+			<int:transactional />
+		</int:poller>
+	</int-jdbc:inbound-channel-adapter>
+
+	<int:service-activator input-channel="dataChannel" ref="messageHandler" />
+	
+	<int:poller default="true" fixed-rate="60000" />
+	
+	<bean id="messageHandler" class="com.bolehunt.email.MessageHandler" />
+	
+	<int:channel id="dataChannel">
+		<int:queue />
+	</int:channel>
+	
+
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="url" value="jdbc:mysql://localhost/gene" />
+		<property name="username" value="devuser" />
+		<property name="password" value="devpwd" />
+	</bean>
+
+	<bean id="verifyTokenRowMapper" class="com.bolehunt.email.VerifyTokenRowMapper" />
+	
+	<bean id="velocityEngine" class="org.springframework.ui.velocity.VelocityEngineFactoryBean">
+    	<property name="resourceLoaderPath" value="/velocity"/>
+	</bean>
+</beans>
