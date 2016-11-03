@@ -1,6 +1,4 @@
 # For Eclipse
 /target/
-.classpath
-.project
 .settings/
 logs/
